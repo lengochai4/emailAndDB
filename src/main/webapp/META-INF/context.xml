@@ -6,8 +6,8 @@
               maxTotal="100"
               maxIdle="30"
               maxWaitMillis="10000"
-              username="postgres"
-              password="1234"
+              username="murach_db_a4vz_user"
+              password="HOsNk6rchXb3mOYnGKezzjuuWMAkStyd"
               driverClassName="org.postgresql.Driver"
-              url="jdbc:postgresql://localhost:5432/postgres"/>
+              url="postgresql://murach_db_a4vz_user:HOsNk6rchXb3mOYnGKezzjuuWMAkStyd@dpg-datre4mk1f9s739crjg0-a/murach_db_a4vz"/>
 </Context>

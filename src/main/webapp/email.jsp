@@ -19,8 +19,7 @@
 
 <div class="content-container">
     <h1>Send an Email</h1>
-    <p>Use the JavaMail API (Chapter 14) to compose and send emails via Gmail SMTP.</p>
-
+    
     <%
         String msg = (String) request.getAttribute("message");
         String msgType = (String) request.getAttribute("messageType");
@@ -67,7 +66,6 @@
             <label for="serverType"><b>Gửi qua Server:</b></label>
             <select name="serverType" id="serverType">
                 <option value="gmail" <%= "gmail".equals(serverTypeVal) ? "selected" : "" %>>Gmail SMTP (Mặc định - Port 587)</option>
-                <option value="local" <%= "local".equals(serverTypeVal) ? "selected" : "" %>>Localhost SMTP (Port 25)</option>
             </select>
         </div>
 
