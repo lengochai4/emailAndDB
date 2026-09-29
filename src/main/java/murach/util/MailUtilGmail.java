@@ -1,21 +1,25 @@
 package murach.util;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 import javax.mail.*;
 import javax.mail.internet.*;
 
 public class MailUtilGmail {
 
-    // 1. Cấu hình Brevo SMTP chuẩn theo tài khoản của bạn (Cổng 587 - Dùng cho cả Local & Render)
+    // 1. Cấu hình Brevo SMTP & API
     public static final String BREVO_HOST = "smtp-relay.brevo.com";
     public static final int BREVO_PORT = 587;
-    
-    // Login chuẩn từ Brevo dashboard của bạn
     public static final String DEFAULT_BREVO_LOGIN = "bba486001@smtp-brevo.com";
     public static final String DEFAULT_BREVO_KEY = "xsmtpsib-9f65b23f91b7f0d34a399d5390cf92db701339a156c92db0d5f14de20db896dd-hua8AzEX4AFivjuY";
 
-    // 2. Cấu hình Gmail SMTPS (Cổng 465 SSL)
+    // 2. Cấu hình Gmail SMTPS (Local)
     public static final String GMAIL_HOST = "smtp.gmail.com";
     public static final int GMAIL_PORT = 465;
     public static final String DEFAULT_GMAIL_USER = "haile442006@gmail.com";
@@ -23,9 +27,13 @@ public class MailUtilGmail {
 
     public static final String DEFAULT_SENDER_NAME = "Murach SQL Gateway & Email";
 
-    // Gửi mail qua Brevo SMTP (Port 587)
+    /**
+     * Gửi mail qua Brevo:
+     * - Tự động sử dụng Brevo HTTPS API (Cổng 443) khi chạy trên Render (do Render Free chặn cổng SMTP 587/465).
+     * - Tự động fallback linh hoạt nếu SMTP bị chặn.
+     */
     public static void sendMailBrevo(String to, String from, String subject, String body, boolean bodyIsHTML)
-            throws MessagingException, UnsupportedEncodingException {
+            throws Exception {
 
         String login = System.getenv("BREVO_SMTP_USER");
         if (login == null || login.trim().isEmpty()) {
@@ -37,6 +45,68 @@ public class MailUtilGmail {
             key = DEFAULT_BREVO_KEY;
         }
 
+        String senderFrom = (from != null && !from.trim().isEmpty()) ? from : "haile442006@gmail.com";
+
+        try {
+            // Thử gửi qua Brevo HTTPS API trước (Cổng 443 - 100% không bao giờ bị Render chặn)
+            sendViaBrevoHttpApi(to, senderFrom, subject, body, bodyIsHTML, key);
+        } catch (Exception apiEx) {
+            // Nếu API lỗi, fallback sang SMTP truyền thống
+            System.err.println("Brevo HTTP API failed, trying SMTP 587: " + apiEx.getMessage());
+            sendViaBrevoSmtp(to, senderFrom, subject, body, bodyIsHTML, login, key);
+        }
+    }
+
+    // Gửi qua Brevo HTTPS REST API (Port 443 - Chuẩn cho Render Cloud)
+    private static void sendViaBrevoHttpApi(String to, String from, String subject, String body, boolean bodyIsHTML, String apiKey)
+            throws Exception {
+
+        URL url = new URL("https://api.brevo.com/v3/smtp/email");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("api-key", apiKey);
+        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        conn.setRequestProperty("accept", "application/json");
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(10000);
+        conn.setDoOutput(true);
+
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+        json.append("\"sender\":{\"name\":\"").append(escapeJson(DEFAULT_SENDER_NAME)).append("\",\"email\":\"").append(escapeJson(from)).append("\"},");
+        json.append("\"to\":[{\"email\":\"").append(escapeJson(to)).append("\"}],");
+        json.append("\"subject\":\"").append(escapeJson(subject)).append("\",");
+        if (bodyIsHTML) {
+            json.append("\"htmlContent\":\"").append(escapeJson(body)).append("\"");
+        } else {
+            json.append("\"textContent\":\"").append(escapeJson(body)).append("\"");
+        }
+        json.append("}");
+
+        try (OutputStream os = conn.getOutputStream()) {
+            byte[] input = json.toString().getBytes(StandardCharsets.UTF_8);
+            os.write(input, 0, input.length);
+        }
+
+        int code = conn.getResponseCode();
+        if (code < 200 || code >= 300) {
+            StringBuilder response = new StringBuilder();
+            if (conn.getErrorStream() != null) {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        response.append(line.trim());
+                    }
+                }
+            }
+            throw new Exception("Brevo API phản hồi lỗi (" + code + "): " + response.toString());
+        }
+    }
+
+    // Gửi qua Brevo SMTP (Port 587)
+    private static void sendViaBrevoSmtp(String to, String from, String subject, String body, boolean bodyIsHTML, String login, String key)
+            throws MessagingException, UnsupportedEncodingException {
+
         Properties props = new Properties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.host", BREVO_HOST);
@@ -45,16 +115,14 @@ public class MailUtilGmail {
         props.put("mail.smtp.starttls.enable", "true");
         props.put("mail.smtp.starttls.required", "true");
         props.put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3");
+        props.put("mail.smtp.connectiontimeout", "5000");
+        props.put("mail.smtp.timeout", "5000");
 
         Session session = Session.getInstance(props);
-        session.setDebug(true);
-
-        String senderFrom = (from != null && !from.trim().isEmpty()) ? from : "haile442006@gmail.com";
-        Message message = createMimeMessage(session, to, senderFrom, subject, body, bodyIsHTML);
+        Message message = createMimeMessage(session, to, from, subject, body, bodyIsHTML);
 
         Transport transport = session.getTransport("smtp");
         try {
-            // Đăng nhập bằng Login ID của Brevo (bba486001@smtp-brevo.com) và Master Key
             transport.connect(BREVO_HOST, BREVO_PORT, login, key);
             transport.sendMessage(message, message.getAllRecipients());
         } finally {
@@ -62,7 +130,7 @@ public class MailUtilGmail {
         }
     }
 
-    // Gửi mail qua Gmail SMTPS (Port 465)
+    // Gửi qua Gmail SMTPS (Port 465)
     public static void sendMailGmail(String to, String from, String subject, String body, boolean bodyIsHTML)
             throws MessagingException, UnsupportedEncodingException {
 
@@ -76,7 +144,6 @@ public class MailUtilGmail {
         props.put("mail.smtps.ssl.protocols", "TLSv1.2 TLSv1.3");
 
         Session session = Session.getInstance(props);
-        session.setDebug(true);
 
         String senderEmail = (from != null && !from.trim().isEmpty()) ? from : DEFAULT_GMAIL_USER;
         Message message = createMimeMessage(session, to, senderEmail, subject, body, bodyIsHTML);
@@ -104,5 +171,16 @@ public class MailUtilGmail {
         message.setFrom(fromAddress);
         message.setRecipient(Message.RecipientType.TO, toAddress);
         return message;
+    }
+
+    private static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\b", "\\b")
+                .replace("\f", "\\f")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }
