@@ -1,13 +1,11 @@
 package murach.email;
 
 import java.io.IOException;
-import javax.mail.MessagingException;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import murach.util.MailUtilGmail;
-import murach.util.MailUtilLocal;
 
 public class EmailServlet extends HttpServlet {
 
@@ -41,13 +39,15 @@ public class EmailServlet extends HttpServlet {
                 messageType = "error";
             } else {
                 try {
-                    if ("local".equalsIgnoreCase(serverType)) {
-                        MailUtilLocal.sendMail(to, from, subject, body, isBodyHTML);
+                    if ("brevo".equalsIgnoreCase(serverType)) {
+                        // Gửi qua Brevo cổng 587 (Chuẩn cho Render)
+                        MailUtilGmail.sendMailBrevo(to, from, subject, body, isBodyHTML);
+                        message = "Email đã được gửi thành công qua Brevo (Port 587) đến: " + to;
                     } else {
-                        // Mặc định gửi qua Gmail với tài khoản được thiết lập sẵn
-                        MailUtilGmail.sendMail(to, from, subject, body, isBodyHTML);
+                        // Gửi qua Gmail cổng 465 (Mặc định cho Local)
+                        MailUtilGmail.sendMailGmail(to, from, subject, body, isBodyHTML);
+                        message = "Email đã được gửi thành công qua Gmail (Port 465) đến: " + to;
                     }
-                    message = "Email đã được gửi thành công đến: " + to;
                     messageType = "success";
                 } catch (Exception e) {
                     message = "Lỗi khi gửi email: " + e.getMessage();

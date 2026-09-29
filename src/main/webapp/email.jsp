@@ -19,7 +19,8 @@
 
 <div class="content-container">
     <h1>Send an Email</h1>
-    
+    <p>Use the JavaMail API (Chapter 14) to compose and send emails via Gmail SMTP or Brevo.</p>
+
     <%
         String msg = (String) request.getAttribute("message");
         String msgType = (String) request.getAttribute("messageType");
@@ -63,9 +64,10 @@
         <input type="hidden" name="action" value="send">
 
         <div class="form-group">
-            <label for="serverType"><b>Gửi qua Server:</b></label>
+            <label for="serverType"><b>Cổng & Máy chủ gửi mail:</b></label>
             <select name="serverType" id="serverType">
-                <option value="gmail" <%= "gmail".equals(serverTypeVal) ? "selected" : "" %>>Gmail SMTP (Mặc định - Port 587)</option>
+                <option value="gmail" <%= "gmail".equals(serverTypeVal) ? "selected" : "" %>>Google Gmail SMTPS (Port 465 - Dành cho Local)</option>
+                <option value="brevo" <%= "brevo".equals(serverTypeVal) ? "selected" : "" %>>Brevo SMTP Relay (Port 587 - Dành cho Render Cloud)</option>
             </select>
         </div>
 
