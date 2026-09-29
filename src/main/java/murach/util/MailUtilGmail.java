@@ -17,8 +17,8 @@ public class MailUtilGmail {
 
         // 1. Create mail session (Cấu hình kết nối SSL tới Gmail)
         Properties props = new Properties();
-        props.put("mail.transport.protocol", "smtps");
-        props.put("mail.smtps.host", "smtp.gmail.com");
+        props.put("mail.transport.protocol", "smtp");
+        props.put("mail.smtps.host", "smtp-relay.brevo.com");
         props.put("mail.smtps.port", "587");
         props.put("mail.smtps.auth", "true");
         props.put("mail.smtps.quitwait", "false");

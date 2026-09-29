@@ -66,7 +66,7 @@
         <div class="form-group">
             <label for="serverType"><b>Gửi qua Server:</b></label>
             <select name="serverType" id="serverType">
-                <option value="gmail" <%= "gmail".equals(serverTypeVal) ? "selected" : "" %>>Gmail SMTPS (Mặc định - Port 465)</option>
+                <option value="gmail" <%= "gmail".equals(serverTypeVal) ? "selected" : "" %>>Gmail SMTP (Mặc định - Port 587)</option>
                 <option value="local" <%= "local".equals(serverTypeVal) ? "selected" : "" %>>Localhost SMTP (Port 25)</option>
             </select>
         </div>
