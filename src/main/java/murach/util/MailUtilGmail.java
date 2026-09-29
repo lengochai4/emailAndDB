@@ -7,28 +7,35 @@ import javax.mail.internet.*;
 
 public class MailUtilGmail {
 
-    // Thông tin tài khoản gửi Gmail mặc định
-    private static final String DEFAULT_GMAIL = "haile442006@gmail.com";
-    private static final String DEFAULT_APP_PASSWORD = "jtbm iblx lqho kmsg";
-    private static final String DEFAULT_SENDER_NAME = "Murach SQL Gateway & Email";
+    // 1. Cấu hình thông tin Brevo SMTP
+    public static final String SMTP_HOST = "smtp-relay.brevo.com";
+    public static final int SMTP_PORT = 587;
+    
+    // Login Email của Brevo (Email bạn dùng đăng ký tài khoản Brevo)
+    public static final String DEFAULT_GMAIL = "haile442006@gmail.com";
+    
+    // SMTP Master Key do Brevo cấp (bắt đầu bằng xsmtpsib-...)
+    public static final String DEFAULT_APP_PASSWORD = "jtbm iblx lqho kmsg";
+    
+    public static final String DEFAULT_SENDER_NAME = "Murach SQL Gateway & Email";
 
     public static void sendMail(String to, String from, String subject, String body, boolean bodyIsHTML)
             throws MessagingException, UnsupportedEncodingException {
 
-        // 1. Create mail session (Cấu hình kết nối SSL tới Gmail)
+        // Cấu hình Properties chuẩn cho giao thức SMTP cổng 587 STARTTLS của Brevo
         Properties props = new Properties();
         props.put("mail.transport.protocol", "smtp");
-        props.put("mail.smtps.host", "smtp-relay.brevo.com");
-        props.put("mail.smtps.port", "587");
-        props.put("mail.smtps.auth", "true");
-        props.put("mail.smtps.quitwait", "false");
-        props.put("mail.smtps.ssl.enable", "true");
-        props.put("mail.smtps.ssl.protocols", "TLSv1.2 TLSv1.3");
+        props.put("mail.smtp.host", SMTP_HOST);
+        props.put("mail.smtp.port", String.valueOf(SMTP_PORT));
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.starttls.required", "true");
+        props.put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3");
 
         Session session = Session.getInstance(props);
         session.setDebug(true);
 
-        // 2. Create message
+        // Tạo nội dung email
         Message message = new MimeMessage(session);
         message.setSubject(subject);
         if (bodyIsHTML) {
@@ -37,17 +44,17 @@ public class MailUtilGmail {
             message.setText(body);
         }
 
-        // 3. Set sender and receiver
+        // Người gửi và người nhận
         String senderEmail = (from != null && !from.trim().isEmpty()) ? from : DEFAULT_GMAIL;
         Address fromAddress = new InternetAddress(senderEmail, DEFAULT_SENDER_NAME);
         Address toAddress = new InternetAddress(to);
         message.setFrom(fromAddress);
         message.setRecipient(Message.RecipientType.TO, toAddress);
 
-        // 4. Login and send
-        Transport transport = session.getTransport();
+        // Đăng nhập vào Brevo và gửi
+        Transport transport = session.getTransport("smtp");
         try {
-            transport.connect(DEFAULT_GMAIL, DEFAULT_APP_PASSWORD);
+            transport.connect(SMTP_HOST, SMTP_PORT, DEFAULT_GMAIL, DEFAULT_APP_PASSWORD);
             transport.sendMessage(message, message.getAllRecipients());
         } finally {
             transport.close();
